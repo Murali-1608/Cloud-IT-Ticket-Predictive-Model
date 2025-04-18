@@ -2,55 +2,56 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.preprocessing.sequence import pad_sequences
 import pickle
-import os
 
-# Load model and tokenizer using correct local path
-MODEL_PATH = os.path.join("models", "IT-Ticket-Prediction-Model-tuned.keras")
-TOKENIZER_PATH = os.path.join("models", "tokenizer.pkl")
-
-# Load model
-model = tf.keras.models.load_model(MODEL_PATH)
-
-# Load tokenizer
-with open(TOKENIZER_PATH, "rb") as f:
-    tokenizer = pickle.load(f)
-
-# FastAPI app setup
+# Initialize FastAPI app
 app = FastAPI()
 
-# Request body definition
+# Load the model and tokenizer at startup
+model_path = "C:/Users/mural/Cloud-IT-Ticket-Predictive-Model/models/IT-Ticket-Prediction-Model-tuned.keras"
+tokenizer_path = "C:/Users/mural/Cloud-IT-Ticket-Predictive-Model/models/tokenizer.pkl"
+
+# Load the model
+model = tf.keras.models.load_model(model_path)
+
+# Load the tokenizer
+with open(tokenizer_path, 'rb') as f:
+    tokenizer = pickle.load(f)
+
+# Define the category labels
+category_labels = ["Network", "Software", "Hardware", "Other"]  # Adjust based on your categories
+
+# Define the input data structure for the prediction request
 class TicketRequest(BaseModel):
     text: str
-    severity: int
-    priority: int
-
-@app.get("/")
-def read_root():
-    return {"message": "✅ Cloud IT Ticket Prediction API is live!"}
+    severity: int  # Severity should be encoded as an integer
+    priority: int  # Priority should be encoded as an integer
 
 @app.post("/predict")
-def predict_ticket(ticket: TicketRequest):
+async def predict(ticket: TicketRequest):
     try:
-        # Tokenize and pad input text
-        sequence = tokenizer.texts_to_sequences([ticket.text])
-        padded_seq = pad_sequences(sequence, maxlen=50, padding="post", truncating="post")
+        # Preprocess the text (tokenize and pad)
+        text_sequence = tokenizer.texts_to_sequences([ticket.text])
+        padded_sequence = tf.keras.preprocessing.sequence.pad_sequences(text_sequence, maxlen=50, padding="post", truncating="post")
 
-        # Prepare metadata input
-        metadata = np.array([[ticket.severity, ticket.priority]])
+        # Prepare other features (severity and priority)
+        other_features = np.array([[ticket.severity, ticket.priority]])
 
-        # Predict
-        category_pred, time_pred = model.predict([padded_seq, metadata])
-        predicted_category = int(np.argmax(category_pred[0]))
-        predicted_days = float(time_pred[0][0])
+        # Make the prediction
+        category_pred, resolution_time_pred = model.predict([padded_sequence, other_features])
 
-        # Return predictions
+        # Get the predicted category label
+        predicted_category_index = np.argmax(category_pred, axis=1)[0]  # Get the index
+        predicted_category = category_labels[predicted_category_index]
+
+        # Get the predicted resolution time
+        predicted_resolution_time_days = resolution_time_pred[0][0]
+
+        # Return the response
         return {
-            "predicted_category_index": predicted_category,
-            "predicted_resolution_time_days": round(predicted_days, 2)
+            "predicted_category": predicted_category,
+            "predicted_resolution_time_days": predicted_resolution_time_days
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
