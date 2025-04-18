@@ -1,57 +1,60 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
-import numpy as np
 import tensorflow as tf
+import numpy as np
 import pickle
+import os
 
-# Initialize FastAPI app
-app = FastAPI()
+# === Initialize App ===
+app = FastAPI(title="Cloud IT Ticket Prediction API")
 
-# Load the model and tokenizer at startup
-model_path = "C:/Users/mural/Cloud-IT-Ticket-Predictive-Model/models/IT-Ticket-Prediction-Model-tuned.keras"
-tokenizer_path = "C:/Users/mural/Cloud-IT-Ticket-Predictive-Model/models/tokenizer.pkl"
+# === Define Input Schema ===
+class TicketInput(BaseModel):
+    description: str
+    severity: int
+    priority: int
 
-# Load the model
-model = tf.keras.models.load_model(model_path)
+# === Load Model and Tokenizer with RELATIVE PATH ===
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Load the tokenizer
-with open(tokenizer_path, 'rb') as f:
+MODEL_PATH = os.path.join(BASE_DIR, "models", "IT-Ticket-Prediction-Model-tuned.keras")
+TOKENIZER_PATH = os.path.join(BASE_DIR, "models", "tokenizer.pkl")
+
+# Load tokenizer
+with open(TOKENIZER_PATH, 'rb') as f:
     tokenizer = pickle.load(f)
 
-# Define the category labels
-category_labels = ["Network", "Software", "Hardware", "Other"]  # Adjust based on your categories
+# Load model
+model = tf.keras.models.load_model(MODEL_PATH)
 
-# Define the input data structure for the prediction request
-class TicketRequest(BaseModel):
-    text: str
-    severity: int  # Severity should be encoded as an integer
-    priority: int  # Priority should be encoded as an integer
+# === Define Max Sequence Length (must match training) ===
+MAX_SEQUENCE_LENGTH = 100
 
+# === Prediction Endpoint ===
 @app.post("/predict")
-async def predict(ticket: TicketRequest):
-    try:
-        # Preprocess the text (tokenize and pad)
-        text_sequence = tokenizer.texts_to_sequences([ticket.text])
-        padded_sequence = tf.keras.preprocessing.sequence.pad_sequences(text_sequence, maxlen=50, padding="post", truncating="post")
+def predict_ticket(input: TicketInput):
+    # Tokenize the description
+    sequence = tokenizer.texts_to_sequences([input.description])
+    padded_sequence = tf.keras.preprocessing.sequence.pad_sequences(
+        sequence, maxlen=MAX_SEQUENCE_LENGTH, padding='post', truncating='post'
+    )
 
-        # Prepare other features (severity and priority)
-        other_features = np.array([[ticket.severity, ticket.priority]])
+    # Prepare metadata
+    metadata = np.array([[input.severity, input.priority]])
 
-        # Make the prediction
-        category_pred, resolution_time_pred = model.predict([padded_sequence, other_features])
+    # Predict using model
+    prediction = model.predict([padded_sequence, metadata])
 
-        # Get the predicted category label
-        predicted_category_index = np.argmax(category_pred, axis=1)[0]  # Get the index
-        predicted_category = category_labels[predicted_category_index]
+    # Handle outputs (adjust if needed based on your model's output shape)
+    category_index = int(np.argmax(prediction[0]))  # Classification output
+    resolution_days = float(prediction[1][0][0])    # Regression output
 
-        # Get the predicted resolution time
-        predicted_resolution_time_days = resolution_time_pred[0][0]
+    return {
+        "predicted_category_index": category_index,
+        "predicted_resolution_time_days": round(resolution_days, 2)
+    }
 
-        # Return the response
-        return {
-            "predicted_category": predicted_category,
-            "predicted_resolution_time_days": predicted_resolution_time_days
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+# === Health Check Route ===
+@app.get("/")
+def home():
+    return {"message": "✅ Cloud IT Ticket Prediction API is live!"}
