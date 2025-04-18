@@ -53,5 +53,5 @@ async def predict_ticket(request: TicketRequest):
         return {"prediction": prediction.tolist()}
 
     except Exception as e:
-        print("❌ Internal Server Error:", str(e))
+        print(" Internal Server Error:", str(e))
         return {"error": str(e)}
