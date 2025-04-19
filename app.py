@@ -58,3 +58,9 @@ def predict_ticket(input: TicketInput):
 @app.get("/")
 def home():
     return {"message": "✅ Cloud IT Ticket Prediction API is live!"}
+
+# === Required for Render Deployment ===
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))  # Get Render port or default to 8000
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
