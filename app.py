@@ -20,12 +20,17 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "IT-Ticket-Prediction-Model-tuned.keras")
 TOKENIZER_PATH = os.path.join(BASE_DIR, "models", "tokenizer.pkl")
 
-# Load tokenizer
-with open(TOKENIZER_PATH, 'rb') as f:
-    tokenizer = pickle.load(f)
+try:
+    # Load tokenizer
+    with open(TOKENIZER_PATH, 'rb') as f:
+        tokenizer = pickle.load(f)
+    print("✅ Tokenizer loaded successfully.")
 
-# Load model
-model = tf.keras.models.load_model(MODEL_PATH)
+    # Load model
+    model = tf.keras.models.load_model(MODEL_PATH)
+    print("✅ Model loaded successfully.")
+except Exception as e:
+    print("❌ Error loading model or tokenizer:", str(e))
 
 # === Define Max Sequence Length (must match training) ===
 MAX_SEQUENCE_LENGTH = 100
@@ -33,26 +38,36 @@ MAX_SEQUENCE_LENGTH = 100
 # === Prediction Endpoint ===
 @app.post("/predict")
 def predict_ticket(input: TicketInput):
-    # Tokenize the description
-    sequence = tokenizer.texts_to_sequences([input.description])
-    padded_sequence = tf.keras.preprocessing.sequence.pad_sequences(
-        sequence, maxlen=MAX_SEQUENCE_LENGTH, padding='post', truncating='post'
-    )
+    try:
+        print("📥 Input received:", input.dict())
 
-    # Prepare metadata
-    metadata = np.array([[input.severity, input.priority]])
+        # Tokenize the description
+        sequence = tokenizer.texts_to_sequences([input.description])
+        padded_sequence = tf.keras.preprocessing.sequence.pad_sequences(
+            sequence, maxlen=MAX_SEQUENCE_LENGTH, padding='post', truncating='post'
+        )
+        print("🧠 Tokenized and padded sequence:", padded_sequence.shape)
 
-    # Predict using model
-    prediction = model.predict([padded_sequence, metadata])
+        # Prepare metadata
+        metadata = np.array([[input.severity, input.priority]])
+        print("🧾 Metadata:", metadata)
 
-    # Handle outputs (adjust if needed based on your model's output shape)
-    category_index = int(np.argmax(prediction[0]))  # Classification output
-    resolution_days = float(prediction[1][0][0])    # Regression output
+        # Predict using model
+        prediction = model.predict([padded_sequence, metadata])
+        print("✅ Prediction raw output:", prediction)
 
-    return {
-        "predicted_category_index": category_index,
-        "predicted_resolution_time_days": round(resolution_days, 2)
-    }
+        # Extract outputs
+        category_index = int(np.argmax(prediction[0]))  # Classification
+        resolution_days = float(prediction[1][0][0])    # Regression
+
+        return {
+            "predicted_category_index": category_index,
+            "predicted_resolution_time_days": round(resolution_days, 2)
+        }
+
+    except Exception as e:
+        print("❌ Exception during prediction:", str(e))
+        return {"error": str(e)}
 
 # === Health Check Route ===
 @app.get("/")
