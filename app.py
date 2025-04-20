@@ -14,9 +14,10 @@ class TicketInput(BaseModel):
     severity: int
     priority: int
 
-# === Hardcoded Windows Paths for Local Development ===
-MODEL_PATH = r"C:\Users\mural\Cloud-IT-Ticket-Predictive-Model\models\IT-Ticket-Prediction-Model-tuned.keras"
-TOKENIZER_PATH = r"C:\Users\mural\Cloud-IT-Ticket-Predictive-Model\models\tokenizer.pkl"
+# === Dynamic Relative Paths for Model Files ===
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "IT-Ticket-Prediction-Model-tuned.keras")
+TOKENIZER_PATH = os.path.join(BASE_DIR, "models", "tokenizer.pkl")
 
 try:
     # Load tokenizer
@@ -73,7 +74,7 @@ def predict_ticket(input: TicketInput):
 def home():
     return {"message": "✅ Cloud IT Ticket Prediction API is live!"}
 
-# === Required for Render Deployment (ignore for local runs if needed) ===
+# === Required for Render Deployment (also works locally) ===
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
