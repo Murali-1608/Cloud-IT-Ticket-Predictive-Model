@@ -33,7 +33,7 @@ except Exception as e:
     raise RuntimeError("❌ Critical error loading model or tokenizer. App cannot continue.")
 
 # === Define Max Sequence Length (must match training) ===
-MAX_SEQUENCE_LENGTH = 100
+MAX_SEQUENCE_LENGTH = 50
 
 # === Prediction Endpoint ===
 @app.post("/predict")
