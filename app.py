@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import tensorflow as tf
 import numpy as np
@@ -14,11 +14,9 @@ class TicketInput(BaseModel):
     severity: int
     priority: int
 
-# === Load Model and Tokenizer with RELATIVE PATH ===
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-MODEL_PATH = os.path.join(BASE_DIR, "models", "IT-Ticket-Prediction-Model-tuned.keras")
-TOKENIZER_PATH = os.path.join(BASE_DIR, "models", "tokenizer.pkl")
+# === Hardcoded Windows Paths for Local Development ===
+MODEL_PATH = r"C:\Users\mural\Cloud-IT-Ticket-Predictive-Model\models\IT-Ticket-Prediction-Model-tuned.keras"
+TOKENIZER_PATH = r"C:\Users\mural\Cloud-IT-Ticket-Predictive-Model\models\tokenizer.pkl"
 
 try:
     # Load tokenizer
@@ -31,6 +29,7 @@ try:
     print("✅ Model loaded successfully.")
 except Exception as e:
     print("❌ Error loading model or tokenizer:", str(e))
+    raise RuntimeError("❌ Critical error loading model or tokenizer. App cannot continue.")
 
 # === Define Max Sequence Length (must match training) ===
 MAX_SEQUENCE_LENGTH = 100
@@ -67,15 +66,15 @@ def predict_ticket(input: TicketInput):
 
     except Exception as e:
         print("❌ Exception during prediction:", str(e))
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 # === Health Check Route ===
 @app.get("/")
 def home():
     return {"message": "✅ Cloud IT Ticket Prediction API is live!"}
 
-# === Required for Render Deployment ===
+# === Required for Render Deployment (ignore for local runs if needed) ===
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))  # Get Render port or default to 8000
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
