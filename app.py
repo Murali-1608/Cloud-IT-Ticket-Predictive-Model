@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import tensorflow as tf
 import numpy as np
@@ -7,6 +8,15 @@ import os
 
 # === Initialize App ===
 app = FastAPI(title="Cloud IT Ticket Prediction API")
+
+# ✅ Enable CORS (allow your frontend only)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:63342"],  # 🔐 Your local frontend URL origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # === Define Input Schema ===
 class TicketInput(BaseModel):
