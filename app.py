@@ -45,7 +45,7 @@ except Exception as e:
 # === Define Max Sequence Length (must match training) ===
 MAX_SEQUENCE_LENGTH = 50
 
-# === Prediction Endpoint ===
+#  Prediction Endpoint
 @app.post("/predict")
 def predict_ticket(input: TicketInput):
     try:
